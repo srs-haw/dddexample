@@ -1,0 +1,93 @@
+stages:
+  - test
+  - build
+  - package
+  - deploy
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+
+cache:
+  paths:
+    - .gradle/
+    - build/
+    - frontend/node_modules/
+
+before_script:
+  - export GRADLE_USER_HOME=`pwd`/.gradle
+
+# Backend Tests
+test-backend:
+  stage: test
+  image: openjdk:21-jdk
+  script:
+    - ./gradlew clean test
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - build/test-results/test/**/TEST-*.xml
+    paths:
+      - build/reports/tests/test/
+    expire_in: 1 week
+  coverage: '/Code coverage: \d+\.\d+/'
+
+# Backend Build
+build-backend:
+  stage: build
+  image: openjdk:21-jdk
+  script:
+    - ./gradlew build -x test
+  artifacts:
+    paths:
+      - build/libs/*.jar
+    expire_in: 1 week
+  dependencies:
+    - test-backend
+
+# Integration Tests
+integration-tests:
+  stage: test
+  image: openjdk:21-jdk
+  services:
+    - name: postgres:13
+      alias: postgres
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+    SPRING_PROFILES_ACTIVE: test
+  script:
+    - ./gradlew integrationTest
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - build/test-results/integrationTest/**/TEST-*.xml
+    expire_in: 1 week
+  dependencies:
+    - build-backend
+
+# Code Quality Analysis
+code-quality:
+  stage: test
+  image: openjdk:21-jdk
+  script:
+    - ./gradlew sonarqube -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_TOKEN
+  only:
+    - main
+    - merge_requests
+  allow_failure: true
+
+# Security Scanning
+security-scan:
+  stage: test
+  image: owasp/dependency-check:latest
+  script:
+    - /usr/share/dependency-check/bin/dependency-check.sh --project "OrderManagement" --scan . --format ALL --out dependency-check-report
+  artifacts:
+    paths:
+      - dependency-check-report/
+    expire_in: 1 week
+  allow_failure: true

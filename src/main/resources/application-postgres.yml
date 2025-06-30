@@ -1,0 +1,51 @@
+spring:
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ordermanagement
+    username: ordermanagement
+    password: ordermanagement
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 20000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+          lob:
+            non_contextual_creation: true
+        default_schema: public
+
+  sql:
+    init:
+      mode: always
+      platform: postgresql
+      data-locations: classpath:data-postgres.sql
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    de.haw.swa.ordermanagement: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
+
+server:
+  port: 8080
